@@ -1,8 +1,8 @@
 /* The addon host's shared declarations (host/addons/).
  *
  * The host runs Lua addons written for our own API (xi.*), for Ashita v4 and for Windower 4, in one
- * LuaJIT state each, on the game thread with the guest lock held. docs/addon-compat-design.md is
- * the design; this header is what the pieces share.
+ * LuaJIT state each, on the game thread with the guest lock held. This header is what the
+ * pieces share.
  *
  * Addresses: the guest's are 32-bit (guest.h, rd32/wr32). Lua sees host addresses
  * (rt_guest_base + guest) so that `ffi.cast` on them works; xi_guest_addr turns either kind back

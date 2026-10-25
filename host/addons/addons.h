@@ -1,4 +1,4 @@
-/* The addon host's interface to host64 (host/addons/). See docs/addon-compat-design.md. */
+/* The addon host's interface to host64 (host/addons/). */
 #pragma once
 
 #include <stdint.h>

@@ -5,7 +5,7 @@
 --only takes a kind or one source by name (--only windower-resources fetches Windower's res/ alone,
 leaving the addons and libraries there as they are).
 
-The addon host (host/addons/, docs/addon-compat-design.md) runs Ashita v4 and Windower 4 addons with
+The addon host (host/addons/) runs Ashita v4 and Windower 4 addons with
 those projects' own Lua libraries, unchanged. They aren't ours, so the repository never carries them:
 this downloads each project's published archive at a pinned commit (PINS) and lays it out in the
 data folder the way each project's own install is laid out:

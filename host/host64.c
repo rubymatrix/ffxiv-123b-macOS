@@ -812,7 +812,7 @@ int main(int argc, char** argv)
     modern_init(&ms);
     setup_nameplates();
     {
-        /* the addon host: Ashita v4 and Windower 4 Lua addons, and our own (docs/addon-compat-design.md) */
+        /* the addon host: Ashita v4 and Windower 4 Lua addons, and our own */
         const char* off = getenv("FFXI_ADDONS");
         if (!off || strcmp(off, "0"))
         {

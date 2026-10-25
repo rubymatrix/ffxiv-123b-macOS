@@ -196,7 +196,7 @@ SIGNIN_SCREEN = ['host\\signin.c', 'host\\sewave.c', 'host\\modern.c', 'host\\da
 HOST_LIBS = ['synchronization.lib', 'ws2_32.lib', 'advapi32.lib', 'bcrypt.lib', 'secur32.lib'] + GFX_LIBS
 
 
-# The addon host (host/addons/, docs/addon-compat-design.md): its C and C++ sources, the embedded Lua
+# The addon host (host/addons/): its C and C++ sources, the embedded Lua
 # (tools/embed_lua.py), and the vendored libraries it links: LuaJIT (its own msvcbuild.bat, in a copy of
 # its tree), Dear ImGui, LuaSocket (Winsock back end) and LuaFileSystem.
 ADDON_DIR = os.path.join(ROOT, 'host', 'addons')
