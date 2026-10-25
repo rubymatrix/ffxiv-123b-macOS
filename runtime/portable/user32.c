@@ -37,6 +37,8 @@
 #define WM_ERASEBKGND 0x0014
 #define WM_SHOWWINDOW 0x0018
 #define WM_ACTIVATEAPP 0x001C
+#define WM_SETCURSOR 0x0020
+#define HTCLIENT 1
 #define WM_NCCREATE 0x0081
 #define WM_NCDESTROY 0x0082
 #define WM_KEYDOWN 0x0100
@@ -656,6 +658,8 @@ static void pump(void)
             {
                 int mx = (int)e.motion.x, my = (int)e.motion.y;
                 ui_unsqueeze(w, &mx, &my);
+                /* the game's window procedure picks the pointer here: its shape, or none */
+                post(w->tid, w->hwnd, WM_SETCURSOR, w->hwnd, ((uint32_t)WM_MOUSEMOVE << 16) | HTCLIENT);
                 post(w->tid, w->hwnd, WM_MOUSEMOVE, mouse_keys(e.motion.state & ~g_overlay_buttons),
                     ((uint32_t)(uint16_t)my << 16) | (uint16_t)mx);
             }
@@ -1044,10 +1048,13 @@ static volatile int g_cursor_known;
 static volatile int g_cursor_forced; /* autoinput.c: a scripted cursor, in window points */
 static volatile float g_cursor_fx, g_cursor_fy;
 
+static void cursor_apply(void);
+
 void user32_main_tick(void)
 {
     if (!g_sdl_up)
         return;
+    cursor_apply();
     float x = 0, y = 0;
     SDL_GetGlobalMouseState(&x, &y); /* on the main thread: no marshalling */
     if (g_cursor_forced)
@@ -1141,25 +1148,168 @@ static void sh_LoadStringA(Guest* g)
     RET(o, 4);
 }
 
-/* icons and cursors: opaque handles; the game only hands them back */
-static uint32_t g_cursor = 0x00030001u;
-static int g_cursor_count;
+/* Icons are opaque handles; the game only hands them back. Cursors from a module's resources
+ * (the game's pointer shapes, ffxivgame.exe RT_GROUP_CURSOR 130..137, which it picks by what is
+ * under the mouse) become SDL colour cursors; system ones (IDC_ARROW) are the macOS arrow. The
+ * game thread only records the cursor it set; the main thread puts it up (user32_main_tick). */
+#define RT_CURSOR 1
+#define RT_GROUP_CURSOR 12
+#define HCURSOR_ARROW 0x00030001u
+#define HCURSOR_FILE 0x00030002u
+#define HCURSOR_BASE 0x00030100u
+#define MAX_CURSORS 16
+
+static struct
+{
+    uint32_t module, id;
+    int w, h, hx, hy;
+    uint8_t* rgba;
+    SDL_Cursor* sdl;
+} g_cursors[MAX_CURSORS];
+static int g_ncursors;
+static volatile uint32_t g_cursor = HCURSOR_ARROW;
+static volatile int g_cursor_count;
+static uint32_t g_cursor_up = ~0u; /* main thread: what SDL shows */
+static int g_cursor_up_vis = -1;
+
+/* An RT_CURSOR (a hotspot, then a DIB: BITMAPINFOHEADER, palette, image, AND mask, bottom-up)
+ * as RGBA. Pixels the mask would invert on Windows are left transparent. */
+static int cursor_decode(uint32_t p, uint32_t size, int* w, int* h, int* hx, int* hy, uint8_t** rgba)
+{
+    if (size < 4 + 40)
+        return 0;
+    *hx = rd16(p), *hy = rd16(p + 2);
+    uint32_t bi = p + 4, hdr = rd32(bi), bpp = rd16(bi + 14), comp = rd32(bi + 16), used = rd32(bi + 32);
+    int cw = (int)rd32(bi + 4), ch = (int)rd32(bi + 8) / 2;
+    if (comp || cw <= 0 || ch <= 0 || cw > 256 || ch > 256 || (bpp != 1 && bpp != 4 && bpp != 8 && bpp != 24 && bpp != 32))
+        return 0;
+    uint32_t pal = bi + hdr, ncol = bpp <= 8 ? (used ? used : 1u << bpp) : 0;
+    uint32_t xs = ((cw * bpp + 31) / 32) * 4, as = ((cw + 31) / 32) * 4;
+    uint32_t xor = pal + 4 * ncol, and = xor + xs * ch;
+    if (and + as * ch > p + size)
+        return 0;
+    uint8_t* out = malloc((size_t)cw * ch * 4);
+    int alpha32 = 0;
+    if (bpp == 32)
+        for (int i = 0; i < cw * ch && !alpha32; ++i)
+            alpha32 = rd8(xor + 4 * i + 3) != 0;
+    for (int y = 0; y < ch; ++y)
+    {
+        uint32_t row = xor + xs * (ch - 1 - y), mrow = and + as * (ch - 1 - y);
+        for (int x = 0; x < cw; ++x)
+        {
+            uint8_t* o = out + 4 * (y * cw + x);
+            uint32_t c; /* BGRx */
+            if (bpp == 32)
+                c = rd32(row + 4 * x);
+            else if (bpp == 24)
+                c = rd8(row + 3 * x) | rd8(row + 3 * x + 1) << 8 | rd8(row + 3 * x + 2) << 16;
+            else
+            {
+                uint32_t bit = x * bpp, v = (rd8(row + bit / 8) >> (8 - bpp - bit % 8)) & ((1u << bpp) - 1);
+                c = v < ncol ? rd32(pal + 4 * v) : 0;
+            }
+            int masked = (rd8(mrow + x / 8) >> (7 - x % 8)) & 1;
+            o[0] = (uint8_t)(c >> 16), o[1] = (uint8_t)(c >> 8), o[2] = (uint8_t)c;
+            o[3] = alpha32 ? (uint8_t)(c >> 24) : masked ? 0 : 255;
+        }
+    }
+    *w = cw, *h = ch, *rgba = out;
+    return 1;
+}
+
+/* LoadCursorA(module, id) for a module's own cursor: its largest, deepest image */
+static uint32_t cursor_load(uint32_t module, uint32_t id)
+{
+    for (int i = 0; i < g_ncursors; ++i)
+        if (g_cursors[i].module == module && g_cursors[i].id == id)
+            return HCURSOR_BASE + (uint32_t)i;
+    uint32_t gsize = 0, grp = pe_resource(module, RT_GROUP_CURSOR, id, &gsize);
+    if (!grp || gsize < 6 || g_ncursors == MAX_CURSORS)
+        return 0;
+    uint32_t n = rd16(grp + 4), best = 0, best_key = 0;
+    for (uint32_t i = 0; i < n && 6 + 14 * (i + 1) <= gsize; ++i)
+    {
+        uint32_t e = grp + 6 + 14 * i, key = (uint32_t)rd16(e) << 16 | rd16(e + 6);
+        if (!best || key > best_key)
+            best = e, best_key = key;
+    }
+    uint32_t size = 0, cur = best ? pe_resource(module, RT_CURSOR, rd16(best + 12), &size) : 0;
+    int i = g_ncursors;
+    if (!cur || !cursor_decode(cur, size, &g_cursors[i].w, &g_cursors[i].h, &g_cursors[i].hx, &g_cursors[i].hy, &g_cursors[i].rgba))
+        return 0;
+    g_cursors[i].module = module, g_cursors[i].id = id;
+    if (getenv("XIV_UI_LOG"))
+        rt_log("[cursor] %u: %dx%d hotspot %d,%d\n", id, g_cursors[i].w, g_cursors[i].h, g_cursors[i].hx, g_cursors[i].hy);
+    __atomic_store_n(&g_ncursors, i + 1, __ATOMIC_RELEASE);
+    return HCURSOR_BASE + (uint32_t)i;
+}
+
+/* main thread: the SDL cursor of a handle, made the first time; NULL for the system arrow. A
+ * second image at twice the size keeps the pixels sharp on Retina screens. */
+static SDL_Cursor* cursor_sdl(uint32_t h)
+{
+    int i = (int)(h - HCURSOR_BASE);
+    if (h < HCURSOR_BASE || i >= __atomic_load_n(&g_ncursors, __ATOMIC_ACQUIRE))
+        return NULL;
+    if (g_cursors[i].sdl)
+        return g_cursors[i].sdl;
+    int w = g_cursors[i].w, ht = g_cursors[i].h;
+    SDL_Surface* s = SDL_CreateSurfaceFrom(w, ht, SDL_PIXELFORMAT_RGBA32, g_cursors[i].rgba, w * 4);
+    SDL_Surface* s2 = SDL_CreateSurface(w * 2, ht * 2, SDL_PIXELFORMAT_RGBA32);
+    if (!s)
+        return NULL;
+    if (s2)
+    {
+        for (int y = 0; y < ht * 2; ++y)
+            for (int x = 0; x < w * 2; ++x)
+                memcpy((uint8_t*)s2->pixels + y * s2->pitch + 4 * x, g_cursors[i].rgba + 4 * ((y / 2) * w + x / 2), 4);
+        SDL_AddSurfaceAlternateImage(s, s2);
+        SDL_DestroySurface(s2);
+    }
+    g_cursors[i].sdl = SDL_CreateColorCursor(s, g_cursors[i].hx, g_cursors[i].hy);
+    if (!g_cursors[i].sdl)
+        rt_log("[cursor] SDL_CreateColorCursor: %s\n", SDL_GetError());
+    SDL_DestroySurface(s);
+    return g_cursors[i].sdl;
+}
+
+/* main thread: show the cursor the game last set, or none (SetCursor(NULL), ShowCursor below 0) */
+static void cursor_apply(void)
+{
+    uint32_t h = g_cursor;
+    int vis = h && g_cursor_count >= 0;
+    if (h && h != g_cursor_up)
+    {
+        SDL_Cursor* c = cursor_sdl(h);
+        SDL_SetCursor(c ? c : SDL_GetDefaultCursor());
+        g_cursor_up = h;
+    }
+    if (vis != g_cursor_up_vis)
+    {
+        if (vis)
+            SDL_ShowCursor();
+        else
+            SDL_HideCursor();
+        g_cursor_up_vis = vis;
+    }
+}
+
 static void sh_LoadIconA(Guest* g) { RET(0x00020001u, 2); }
-static void sh_LoadCursorA(Guest* g) { RET(0x00030001u, 2); }
-static void sh_LoadCursorFromFileA(Guest* g) { RET(0x00030002u, 1); }
+
+static void sh_LoadCursorA(Guest* g)
+{
+    uint32_t h = ARG(0) && ARG(1) < 0x10000u ? cursor_load(ARG(0), ARG(1)) : 0;
+    RET(h ? h : HCURSOR_ARROW, 2);
+}
+
+static void sh_LoadCursorFromFileA(Guest* g) { RET(HCURSOR_FILE, 1); }
 static void sh_SetCursor(Guest* g) { uint32_t old = g_cursor; g_cursor = ARG(0); RET(old, 1); }
 
 static void sh_ShowCursor(Guest* g)
 {
-    g_cursor_count += ARG(0) ? 1 : -1;
-    if (g_sdl_up)
-    {
-        if (g_cursor_count >= 0)
-            SDL_ShowCursor();
-        else
-            SDL_HideCursor();
-    }
-    RET((uint32_t)g_cursor_count, 1);
+    int n = __atomic_add_fetch(&g_cursor_count, ARG(0) ? 1 : -1, __ATOMIC_RELAXED);
+    RET((uint32_t)n, 1);
 }
 
 /* The low-level keyboard hook (it keeps the Windows key from leaving the game): never called here. */
