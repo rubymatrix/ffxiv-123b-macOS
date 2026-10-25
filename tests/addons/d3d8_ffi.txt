@@ -1,4 +1,0 @@
-# host64 --addon-harness: the addons' Direct3D 8, D3DX and Win32 through ffi (tests/addons/d3d8_ffi.py)
-load d3d8test xi
-frames 6
-unload d3d8test

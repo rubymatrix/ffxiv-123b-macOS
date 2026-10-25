@@ -1,4 +1,0 @@
-# host64 --addon-harness: gdifonts on the host's renderer (tests/addons/d3d8_ffi.py --gdifonts <dir>)
-load gditest xi
-frames 6
-unload gditest

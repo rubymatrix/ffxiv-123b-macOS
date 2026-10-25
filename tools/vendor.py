@@ -1,6 +1,6 @@
-"""Vendor SDL3 and mbedtls into third_party/, so a player's Mac needs only clang to build them.
+"""Vendor SDL3 into third_party/, so a player's Mac needs only clang to build it.
 
-  python3 tools/vendor.py [sdl3|mbedtls ...]
+  python3 tools/vendor.py [sdl3 ...]
 
 For the maintainer, not the player: needs cmake and network. For each library it downloads the
 pinned release (checked against its SHA-256), configures it once with cmake to learn the exact
@@ -42,17 +42,6 @@ LIBS = {
         'frameworks': ['CoreMedia', 'CoreVideo', 'Cocoa', 'IOKit', 'ForceFeedback', 'Carbon', 'CoreAudio',
                        'AudioToolbox', 'AVFoundation', 'Foundation', 'GameController', 'Metal', 'QuartzCore'],
         'weak_frameworks': ['UniformTypeIdentifiers', 'CoreHaptics'],
-    },
-    'mbedtls': {
-        'version': '4.2.0',
-        'url': 'https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-4.2.0/mbedtls-4.2.0.tar.bz2',
-        'sha256': '2bed9d713b4668f76553b097e72b8aa30bc8f112a940d7ae228d524bbde6ffea',
-        'license': ['LICENSE'],
-        'cmake': ['-DENABLE_PROGRAMS=OFF', '-DENABLE_TESTING=OFF', '-DUSE_SHARED_MBEDTLS_LIBRARY=OFF',
-                  '-DUSE_STATIC_MBEDTLS_LIBRARY=ON'],
-        'public': ['include', 'tf-psa-crypto/include', 'tf-psa-crypto/drivers/builtin/include'],
-        'frameworks': [],
-        'weak_frameworks': [],
     },
 }
 # flags of cmake's that the manifest keeps (the rest are warnings, colors, pch and output paths)
@@ -151,7 +140,7 @@ def vendor(name, work):
         origin = os.path.join(bld, f[4:]) if f.startswith('gen/') else os.path.join(src, f)
         os.makedirs(os.path.dirname(os.path.join(dest, f)), exist_ok=True)
         shutil.copy(origin, os.path.join(dest, f))
-    # include dirs with no header left in them are dropped (mbedtls's empty generated ones)
+    # include dirs with no header left in them are dropped
     have = set(os.path.dirname(f) for f in keep)
 
     def live(d):

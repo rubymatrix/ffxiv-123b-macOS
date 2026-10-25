@@ -480,32 +480,16 @@ def retail_dll():
 
 
 def image_constants(prog, image_path):
-    """What the loader needs to rebuild .text from the retail DLL and check it is the right build."""
-    sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tools')))
-    import unpack  # the static unpacker (tools/unpack.py)
+    """What the loader needs to map the retail EXE and check it is the right build."""
     pe = pefile.PE(image_path, fast_load=True)
     text = next(s for s in pe.sections if s.Name.rstrip(b'\0') == b'.text')
-    if not any(s.Name.rstrip(b'\0') == b'.reloc' for s in pe.sections):
-        # An EXE at its fixed base, not packed (ffxivgame.exe): .text is the file's own.
-        return {
-            'base': prog.base, 'reloc_rva': 0, 'timestamp': pe.FILE_HEADER.TimeDateStamp,
-            'size': pe.OPTIONAL_HEADER.SizeOfImage, 'text_rva': text.VirtualAddress,
-            'text_size': text.Misc_VirtualSize, 'packed_rva': 0, 'packed_len': 0,
-            'oep': prog.base + pe.OPTIONAL_HEADER.AddressOfEntryPoint,
-        }
-    packed = unpack.packed_section(pe)
-    src_len, dst_len, oep = unpack.parse_stub(pe)
-    reloc = next(s for s in pe.sections if s.Name.rstrip(b'\0') == b'.reloc')
+    if any(s.Name.rstrip(b'\0') == b'.reloc' for s in pe.sections):
+        raise SystemExit('%s: relocatable images are not supported; the game\'s EXEs load at a fixed base' % image_path)
     return {
-        'base': prog.base,
-        'reloc_rva': reloc.VirtualAddress,
-        'timestamp': pe.FILE_HEADER.TimeDateStamp,
-        'size': pe.OPTIONAL_HEADER.SizeOfImage,
-        'text_rva': text.VirtualAddress,
-        'text_size': dst_len,
-        'packed_rva': packed.VirtualAddress,
-        'packed_len': src_len,
-        'oep': prog.base + oep,
+        'base': prog.base, 'reloc_rva': 0, 'timestamp': pe.FILE_HEADER.TimeDateStamp,
+        'size': pe.OPTIONAL_HEADER.SizeOfImage, 'text_rva': text.VirtualAddress,
+        'text_size': text.Misc_VirtualSize, 'packed_rva': 0, 'packed_len': 0,
+        'oep': prog.base + pe.OPTIONAL_HEADER.AddressOfEntryPoint,
     }
 
 

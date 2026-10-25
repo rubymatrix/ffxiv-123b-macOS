@@ -1,1 +1,0 @@
-SQLite amalgamation 3.50.4 (https://www.sqlite.org/2025/sqlite-amalgamation-3500400.zip)

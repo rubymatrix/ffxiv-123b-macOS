@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import thirdparty  # noqa: E402  (vendored SDL3, as tools/build_posix.py builds it)
+import thirdparty  # noqa: E402  (vendored SDL3 and unshield)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 META = 'meta/ffxivgame.1.23b.meta.json'

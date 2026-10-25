@@ -1,1 +1,0 @@
-lsqlite3 0.9.6 (http://lua.sqlite.org), MIT: see the notice at the top of lsqlite3.c
