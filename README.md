@@ -1,6 +1,6 @@
 # FINAL FANTASY XIV 1.23b for Mac
 
-![In game](screenshots/ffxiv-in-game.webp)
+<a href="https://discord.gg/4vUKPgyvEp"><img src="screenshots/xiv_discord_banner.webp" alt="XIV on Mac: join the community on Discord"></a>
 
 > [!IMPORTANT]
 > ## ▶ To play, run the [installer](docs/install.md)
@@ -50,8 +50,6 @@ It plays on 1.23b private servers such as
 ## Help
 
 Stuck? Ask on the [XI on Anything Discord](https://discord.gg/4vUKPgyvEp).
-
-<a href="https://discord.gg/4vUKPgyvEp"><img src="screenshots/xiv_discord_banner.webp" alt="XIV on Mac: join the community on Discord"></a>
 
 ## No game files here
 
