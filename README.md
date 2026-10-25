@@ -1,6 +1,6 @@
 # FINAL FANTASY XIV 1.23b for Mac
 
-<a href="https://discord.gg/4vUKPgyvEp"><img src="screenshots/xiv_discord_banner.webp" alt="XIV on Mac: join the community on Discord"></a>
+<a href="https://discord.gg/4vUKPgyvEp"><img src="screenshots/xiv_banner.webp" alt="XIV on Mac: join the community on Discord"></a>
 
 > [!IMPORTANT]
 > ## ▶ To play, run the [installer](docs/install.md)
