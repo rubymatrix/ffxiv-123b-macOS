@@ -51,7 +51,7 @@ It plays on 1.23b private servers such as
 
 Stuck? Ask on the [XI on Anything Discord](https://discord.gg/4vUKPgyvEp).
 
-<a href="https://discord.gg/4vUKPgyvEp"><img src="screenshots/discord_banner.webp" alt="Join the XI on Anything Discord"></a>
+<a href="https://discord.gg/4vUKPgyvEp"><img src="screenshots/xiv_discord_banner.webp" alt="XIV on Mac: join the community on Discord"></a>
 
 ## No game files here
 
