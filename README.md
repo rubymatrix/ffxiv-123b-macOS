@@ -19,7 +19,9 @@ Wine, no Rosetta. The game is rebuilt for your Mac from your own disc, and the a
 1.23b for you.
 
 It plays on 1.23b private servers such as
-[Project Meteor](https://github.com/Project-Meteor/project-meteor-server).
+[Project Meteor](https://github.com/Project-Meteor-Server/Project-Meteor-Server).
+
+
 
 ## Videos
 
