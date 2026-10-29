@@ -66,7 +66,7 @@ an appended line counts from when it is read (so `+0` means now).
 | `interact [key]` | press Return (or key) and wait for the client's EventStart (0x012D) |
 | `choose N` | menu item N (1 = first): `Down` N-1 times, then `Return` |
 | `waitfor in\|out\|any OPCODE [timeout_ms]` | wait for a game packet (hex opcode) since the previous action |
-| `nettrace 0\|1` | log every game packet as `[net] in/out 0xOPCODE src=... len=... <payload>` (not 0xCA/0xCF/0x01/0x02) |
+| `nettrace 0\|1` | log every game packet as `[net] t=<unix ms> in/out 0xOPCODE src=... len=... <payload>` (not 0xCA/0xCF/0x01/0x02); `t` is the server capture's clock |
 
 `walkto`, `via`, `follow`, `face`, `turn`, `waitfor`, `target`, `untarget` and `interact` **block the
 timeline**: the lines after them wait, and their times are shifted by however long the blocking

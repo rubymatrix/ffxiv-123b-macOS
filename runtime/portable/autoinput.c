@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/time.h>
 
 #include "gwin.h"
 #include "input.h"
@@ -1076,7 +1077,11 @@ static void net_msg(int out, const uint8_t* sub, uint32_t size)
         char hex[3 * 24 + 1] = "";
         for (uint32_t i = 0; i < m->plen && i < 24; ++i)
             snprintf(hex + 3 * i, 4, "%02x ", m->pay[i]);
-        rt_log("[net] %s 0x%04X src=0x%08X len=%u %s\n", out ? "out" : "in ", m->op, m->src, m->plen, hex);
+        /* Unix ms, the clock the server's packet capture stamps, so the two line up. */
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        const unsigned long long ms = (unsigned long long)now.tv_sec * 1000ULL + (unsigned long long)now.tv_usec / 1000ULL;
+        rt_log("[net] t=%llu %s 0x%04X src=0x%08X len=%u %s\n", ms, out ? "out" : "in ", m->op, m->src, m->plen, hex);
     }
 }
 
